@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.schemas.health import HealthResponse
 
-
 router = APIRouter(
     prefix="/health",
     tags=["Health"],
