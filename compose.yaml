@@ -11,6 +11,34 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U task_manager -d task_manager"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-test:
+    image: postgres:18
+    container_name: task-manager-db-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: task_manager_test
+      POSTGRES_USER: task_manager
+      POSTGRES_PASSWORD: task_manager
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U task_manager -d task_manager_test",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
+  postgres_test_data:
