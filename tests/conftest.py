@@ -7,8 +7,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
+from app.core.security import create_access_token
 from app.db.base import Base
 from app.db.database import get_db
+from app.db.models import User
 from app.main import app
 
 TEST_DATABASE_URL = os.getenv(
@@ -71,13 +73,42 @@ def db_session() -> Generator[Session, None, None]:
 
 
 @pytest.fixture
-def client(db_session: Session) -> Generator[TestClient, None, None]:
+def client() -> Generator[TestClient, None, None]:
     def override_get_db() -> Generator[Session, None, None]:
-        yield db_session
+        with TestingSessionLocal() as db:
+            yield db
 
     app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(app) as test_client:
-        yield test_client
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
 
-    app.dependency_overrides.clear()
+
+@pytest.fixture
+def create_user(db_session: Session):
+    def factory(email: str) -> User:
+        user = User(
+            email=email.lower(),
+            password_hash="test-only-placeholder",
+        )
+
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+
+        return user
+
+    return factory
+
+
+@pytest.fixture
+def auth_headers():
+    def factory(user_id: int) -> dict[str, str]:
+        token = create_access_token(subject=str(user_id))
+
+        return {"Authorization": f"Bearer {token}"}
+
+    return factory

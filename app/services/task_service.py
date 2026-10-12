@@ -3,35 +3,21 @@ from sqlalchemy.orm import Session
 from app.db.models import Task
 from app.domain.enums import TaskPriority, TaskStatus
 from app.repositories.task_repository import TaskRepository
-from app.repositories.user_repository import UserRepository
 from app.schemas.task import TaskCreate, TaskUpdate
 
 
-class UserNotFoundError(Exception):
-    pass
-
-
 class TaskService:
-    def __init__(
-        self,
-        db: Session,
-    ) -> None:
+    def __init__(self, db: Session) -> None:
         self.db = db
         self.task_repository = TaskRepository(db)
-        self.user_repository = UserRepository(db)
 
-    def create(self, data: TaskCreate) -> Task:
-        user = self.user_repository.get_by_id(data.user_id)
-
-        if user is None:
-            raise UserNotFoundError(data.user_id)
-
+    def create(self, data: TaskCreate, *, user_id: int) -> Task:
         task = Task(
             title=data.title,
             description=data.description,
             status=data.status,
             priority=data.priority,
-            user_id=data.user_id,
+            user_id=user_id,
         )
 
         self.task_repository.add(task)
@@ -41,11 +27,7 @@ class TaskService:
 
         return task
 
-    def get(
-        self,
-        task_id: int,
-        user_id: int,
-    ) -> Task | None:
+    def get(self, task_id: int, user_id: int) -> Task | None:
         return self.task_repository.get_by_id(task_id, user_id)
 
     def list(
@@ -86,11 +68,7 @@ class TaskService:
 
         return task
 
-    def delete(
-        self,
-        task_id: int,
-        user_id: int,
-    ) -> bool:
+    def delete(self, task_id: int, user_id: int) -> bool:
         task = self.task_repository.get_by_id(task_id, user_id)
 
         if task is None:

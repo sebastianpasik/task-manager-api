@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.core.dependencies import TaskServiceDependency
+from app.core.dependencies import CurrentUser, TaskServiceDependency
 from app.domain.enums import TaskPriority, TaskStatus
 from app.schemas.task import (
     TaskCreate,
@@ -10,7 +10,6 @@ from app.schemas.task import (
     TaskRead,
     TaskUpdate,
 )
-from app.services.task_service import UserNotFoundError
 
 router = APIRouter(
     prefix="/tasks",
@@ -25,24 +24,16 @@ router = APIRouter(
 )
 def create_task(
     data: TaskCreate,
+    current_user: CurrentUser,
     service: TaskServiceDependency,
 ) -> TaskRead:
-    try:
-        return service.create(data)
-    except UserNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User {exc.args[0]} not found",
-        ) from exc
+    return service.create(data, user_id=current_user.id)
 
 
-@router.get(
-    "",
-    response_model=TaskListResponse,
-)
+@router.get("", response_model=TaskListResponse)
 def list_tasks(
+    current_user: CurrentUser,
     service: TaskServiceDependency,
-    user_id: Annotated[int, Query(gt=0)],
     status_filter: Annotated[
         TaskStatus | None,
         Query(alias="status"),
@@ -52,7 +43,7 @@ def list_tasks(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> TaskListResponse:
     items, total = service.list(
-        user_id=user_id,
+        user_id=current_user.id,
         status=status_filter,
         priority=priority,
         skip=skip,
@@ -67,19 +58,13 @@ def list_tasks(
     )
 
 
-@router.get(
-    "/{task_id}",
-    response_model=TaskRead,
-)
+@router.get("/{task_id}", response_model=TaskRead)
 def get_task(
     task_id: int,
-    user_id: Annotated[int, Query(gt=0)],
+    current_user: CurrentUser,
     service: TaskServiceDependency,
 ) -> TaskRead:
-    task = service.get(
-        task_id=task_id,
-        user_id=user_id,
-    )
+    task = service.get(task_id, current_user.id)
 
     if task is None:
         raise HTTPException(
@@ -90,21 +75,14 @@ def get_task(
     return task
 
 
-@router.patch(
-    "/{task_id}",
-    response_model=TaskRead,
-)
+@router.patch("/{task_id}", response_model=TaskRead)
 def update_task(
     task_id: int,
-    user_id: Annotated[int, Query(gt=0)],
     data: TaskUpdate,
+    current_user: CurrentUser,
     service: TaskServiceDependency,
 ) -> TaskRead:
-    task = service.update(
-        task_id=task_id,
-        user_id=user_id,
-        data=data,
-    )
+    task = service.update(task_id, current_user.id, data)
 
     if task is None:
         raise HTTPException(
@@ -121,13 +99,10 @@ def update_task(
 )
 def delete_task(
     task_id: int,
-    user_id: Annotated[int, Query(gt=0)],
+    current_user: CurrentUser,
     service: TaskServiceDependency,
 ) -> None:
-    deleted = service.delete(
-        task_id=task_id,
-        user_id=user_id,
-    )
+    deleted = service.delete(task_id, current_user.id)
 
     if not deleted:
         raise HTTPException(
