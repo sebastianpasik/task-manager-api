@@ -14,6 +14,16 @@ class TaskCreate(BaseModel):
     status: TaskStatus = TaskStatus.TODO
     priority: TaskPriority = TaskPriority.MEDIUM
 
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Title cannot be blank")
+
+        return value
+
 
 class TaskUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
