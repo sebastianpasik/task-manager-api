@@ -6,6 +6,7 @@ from app.db.models import Task
 from app.schemas.task import TaskCreate
 from app.services.task_service import TaskService
 
+
 def test_create_task(client, create_user, auth_headers) -> None:
     user = create_user("owner@example.com")
     headers = auth_headers(user.id)
@@ -162,6 +163,7 @@ def test_tasks_require_authentication(client) -> None:
 
     assert response.status_code == 401
 
+
 def test_task_creation_rolls_back_after_database_error(
     db_session,
     create_user,
@@ -187,8 +189,6 @@ def test_task_creation_rolls_back_after_database_error(
         )
 
     # Po błędzie sesja powinna znów nadawać się do użytku.
-    count = db_session.scalar(
-        select(func.count()).select_from(Task)
-    )
+    count = db_session.scalar(select(func.count()).select_from(Task))
 
     assert count == 0

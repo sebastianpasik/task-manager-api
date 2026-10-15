@@ -1,0 +1,69 @@
+name: ci.yml
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Tests and code quality
+    runs-on: ubuntu-latest
+
+    env:
+      APP_NAME: Task Manager API
+      APP_VERSION: 0.1.0
+      DEBUG: "false"
+
+      DATABASE_URL: postgresql+psycopg://task_manager:task_manager@localhost:5433/task_manager_test
+      TEST_DATABASE_URL: postgresql+psycopg://task_manager:task_manager@localhost:5433/task_manager_test
+
+      JWT_SECRET_KEY: ci-only-secret-not-for-production-0123456789abcdef
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: task_manager_test
+          POSTGRES_USER: task_manager
+          POSTGRES_PASSWORD: task_manager
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U task_manager -d task_manager_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --locked --dev
+
+      - name: Validate database migrations
+        run: uv run alembic upgrade head
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov=app --cov-report=term-missing

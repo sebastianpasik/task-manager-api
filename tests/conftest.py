@@ -1,9 +1,10 @@
-import os
 from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -12,9 +13,6 @@ from app.db.base import Base
 from app.db.database import get_db
 from app.db.models import User
 from app.main import app
-
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from sqlalchemy.engine import make_url
 
 
 class _TestSettings(BaseSettings):
@@ -35,10 +33,7 @@ TEST_DATABASE_URL = test_settings.test_database_url
 
 parsed_test_url = make_url(TEST_DATABASE_URL)
 
-if (
-    not parsed_test_url.database
-    or not parsed_test_url.database.endswith("_test")
-):
+if not parsed_test_url.database or not parsed_test_url.database.endswith("_test"):
     raise RuntimeError(
         "TEST_DATABASE_URL must point to a dedicated "
         "test database whose name ends with '_test'."

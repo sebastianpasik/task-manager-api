@@ -1,13 +1,13 @@
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from app.core.security import verify_password
-from app.db.models import User
 from datetime import UTC, datetime, timedelta
 
 import jwt
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.security import verify_password
+from app.db.models import User
+
 
 def register_payload(
     email: str = "alice@example.com",
@@ -140,6 +140,7 @@ def test_invalid_token_returns_401(client) -> None:
 
     assert response.status_code == 401
 
+
 def test_expired_token_returns_401(client) -> None:
     now = datetime.now(UTC)
 
@@ -160,6 +161,7 @@ def test_expired_token_returns_401(client) -> None:
 
     assert response.status_code == 401
 
+
 def test_token_for_deleted_or_unknown_user_returns_401(
     client,
     auth_headers,
@@ -170,6 +172,7 @@ def test_token_for_deleted_or_unknown_user_returns_401(
     )
 
     assert response.status_code == 401
+
 
 def test_inactive_user_cannot_access_profile(
     client,
@@ -190,6 +193,7 @@ def test_inactive_user_cannot_access_profile(
 
     assert response.status_code == 403
 
+
 def test_task_title_cannot_be_blank(
     client,
     create_user,
@@ -204,6 +208,7 @@ def test_task_title_cannot_be_blank(
     )
 
     assert response.status_code == 422
+
 
 def test_invalid_task_status_is_rejected(
     client,
@@ -222,6 +227,7 @@ def test_invalid_task_status_is_rejected(
     )
 
     assert response.status_code == 422
+
 
 def test_patch_rejects_null_title(
     client,
@@ -245,6 +251,7 @@ def test_patch_rejects_null_title(
     )
 
     assert response.status_code == 422
+
 
 def test_user_cannot_update_or_delete_another_users_task(
     client,
@@ -276,4 +283,3 @@ def test_user_cannot_update_or_delete_another_users_task(
 
     assert update_response.status_code == 404
     assert delete_response.status_code == 404
-

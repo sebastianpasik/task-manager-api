@@ -80,7 +80,7 @@ class TaskService:
 
         if task is None:
             return False
-        
+
         try:
             self.task_repository.delete(task)
             self.db.commit()
