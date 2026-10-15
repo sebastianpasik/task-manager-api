@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -13,7 +15,7 @@ router = APIRouter(
 
 @router.get("", response_model=HealthResponse)
 async def health_check(
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)],
 ) -> HealthResponse:
     db.execute(text("SELECT 1"))
 

@@ -11,7 +11,7 @@ def test_user_can_have_tasks(db_session):
         password_hash="hashed-password",
     )
 
-    task = Task(
+    Task(
         title="Learn FastAPI",
         status=TaskStatus.TODO,
         priority=TaskPriority.HIGH,
