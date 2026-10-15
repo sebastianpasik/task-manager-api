@@ -1,3 +1,11 @@
+import pytest
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+
+from app.db.models import Task
+from app.schemas.task import TaskCreate
+from app.services.task_service import TaskService
+
 def test_create_task(client, create_user, auth_headers) -> None:
     user = create_user("owner@example.com")
     headers = auth_headers(user.id)
@@ -153,3 +161,34 @@ def test_tasks_require_authentication(client) -> None:
     response = client.get("/api/v1/tasks")
 
     assert response.status_code == 401
+
+def test_task_creation_rolls_back_after_database_error(
+    db_session,
+    create_user,
+    monkeypatch,
+) -> None:
+    user = create_user("rollback@example.com")
+    user_id = user.id
+
+    db_session.rollback()
+    service = TaskService(db_session)
+
+    def fail_add(task: Task) -> None:
+        # Wymuszamy naruszenie CHECK constraint w PostgreSQL.
+        db_session.add(Task(title="   ", user_id=user_id))
+        db_session.flush()
+
+    monkeypatch.setattr(service.task_repository, "add", fail_add)
+
+    with pytest.raises(IntegrityError):
+        service.create(
+            TaskCreate(title="A valid task"),
+            user_id=user_id,
+        )
+
+    # Po błędzie sesja powinna znów nadawać się do użytku.
+    count = db_session.scalar(
+        select(func.count()).select_from(Task)
+    )
+
+    assert count == 0

@@ -13,10 +13,36 @@ from app.db.database import get_db
 from app.db.models import User
 from app.main import app
 
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql+psycopg://task_manager:task_manager@localhost:5433/task_manager_test",
-)
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+
+
+class _TestSettings(BaseSettings):
+    test_database_url: str = (
+        "postgresql+psycopg://task_manager:task_manager"
+        "@localhost:5433/task_manager_test"
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+test_settings = _TestSettings()
+TEST_DATABASE_URL = test_settings.test_database_url
+
+parsed_test_url = make_url(TEST_DATABASE_URL)
+
+if (
+    not parsed_test_url.database
+    or not parsed_test_url.database.endswith("_test")
+):
+    raise RuntimeError(
+        "TEST_DATABASE_URL must point to a dedicated "
+        "test database whose name ends with '_test'."
+    )
 
 
 test_engine = create_engine(

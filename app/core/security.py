@@ -8,6 +8,9 @@ from app.core.config import settings
 
 password_hasher = PasswordHash.recommended()
 
+DUMMY_PASSWORD_HASH = password_hasher.hash(
+    "not-a-real-user-password"
+)
 
 def hash_password(password: str) -> str:
     """Return a secure password hash."""

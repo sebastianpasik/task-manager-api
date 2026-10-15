@@ -20,10 +20,13 @@ class TaskService:
             user_id=user_id,
         )
 
-        self.task_repository.add(task)
-
-        self.db.commit()
-        self.db.refresh(task)
+        try:
+            self.task_repository.add(task)
+            self.db.commit()
+            self.db.refresh(task)
+        except Exception:
+            self.db.rollback()
+            raise
 
         return task
 
@@ -58,13 +61,17 @@ class TaskService:
         if task is None:
             return None
 
-        update_data = data.model_dump(exclude_unset=True)
+        try:
+            update_data = data.model_dump(exclude_unset=True)
 
-        for field, value in update_data.items():
-            setattr(task, field, value)
+            for field, value in update_data.items():
+                setattr(task, field, value)
 
-        self.db.commit()
-        self.db.refresh(task)
+            self.db.commit()
+            self.db.refresh(task)
+        except Exception:
+            self.db.rollback()
+            raise
 
         return task
 
@@ -73,8 +80,12 @@ class TaskService:
 
         if task is None:
             return False
-
-        self.task_repository.delete(task)
-        self.db.commit()
+        
+        try:
+            self.task_repository.delete(task)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
         return True

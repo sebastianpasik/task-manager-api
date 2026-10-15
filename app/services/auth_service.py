@@ -1,7 +1,11 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password, verify_password
+from app.core.security import (
+    DUMMY_PASSWORD_HASH,
+    hash_password,
+    verify_password,
+)
 from app.db.models import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate
@@ -49,6 +53,9 @@ class AuthService:
                 raise EmailAlreadyRegisteredError from exc
 
             raise
+        except Exception:
+            self.db.rollback()
+            raise
 
         self.db.refresh(user)
         return user
@@ -64,6 +71,7 @@ class AuthService:
         user = self.user_repository.get_by_email(normalized_email)
 
         if user is None:
+            verify_password(password, DUMMY_PASSWORD_HASH)
             raise InvalidCredentialsError
 
         if not verify_password(password, user.password_hash):

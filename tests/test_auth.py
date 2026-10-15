@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.core.security import verify_password
 from app.db.models import User
+from datetime import UTC, datetime, timedelta
 
+import jwt
+
+from app.core.config import settings
 
 def register_payload(
     email: str = "alice@example.com",
@@ -135,3 +139,141 @@ def test_invalid_token_returns_401(client) -> None:
     )
 
     assert response.status_code == 401
+
+def test_expired_token_returns_401(client) -> None:
+    now = datetime.now(UTC)
+
+    expired_token = jwt.encode(
+        {
+            "sub": "1",
+            "iat": now - timedelta(minutes=10),
+            "exp": now - timedelta(minutes=5),
+        },
+        settings.jwt_secret_key.get_secret_value(),
+        algorithm=settings.jwt_algorithm,
+    )
+
+    response = client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+
+    assert response.status_code == 401
+
+def test_token_for_deleted_or_unknown_user_returns_401(
+    client,
+    auth_headers,
+) -> None:
+    response = client.get(
+        "/api/v1/users/me",
+        headers=auth_headers(999999),
+    )
+
+    assert response.status_code == 401
+
+def test_inactive_user_cannot_access_profile(
+    client,
+    create_user,
+    auth_headers,
+    db_session,
+) -> None:
+    user = create_user("inactive@example.com")
+    user_id = user.id
+
+    user.is_active = False
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/users/me",
+        headers=auth_headers(user_id),
+    )
+
+    assert response.status_code == 403
+
+def test_task_title_cannot_be_blank(
+    client,
+    create_user,
+    auth_headers,
+) -> None:
+    user = create_user("blank-title@example.com")
+
+    response = client.post(
+        "/api/v1/tasks",
+        headers=auth_headers(user.id),
+        json={"title": "   "},
+    )
+
+    assert response.status_code == 422
+
+def test_invalid_task_status_is_rejected(
+    client,
+    create_user,
+    auth_headers,
+) -> None:
+    user = create_user("invalid-status@example.com")
+
+    response = client.post(
+        "/api/v1/tasks",
+        headers=auth_headers(user.id),
+        json={
+            "title": "Valid title",
+            "status": "unknown",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_patch_rejects_null_title(
+    client,
+    create_user,
+    auth_headers,
+) -> None:
+    user = create_user("patch-title@example.com")
+    headers = auth_headers(user.id)
+
+    create_response = client.post(
+        "/api/v1/tasks",
+        headers=headers,
+        json={"title": "Original title"},
+    )
+    task_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_id}",
+        headers=headers,
+        json={"title": None},
+    )
+
+    assert response.status_code == 422
+
+def test_user_cannot_update_or_delete_another_users_task(
+    client,
+    create_user,
+    auth_headers,
+) -> None:
+    owner = create_user("owner-update@example.com")
+    other_user = create_user("other-update@example.com")
+
+    create_response = client.post(
+        "/api/v1/tasks",
+        headers=auth_headers(owner.id),
+        json={"title": "Private task"},
+    )
+    task_id = create_response.json()["id"]
+
+    other_headers = auth_headers(other_user.id)
+
+    update_response = client.patch(
+        f"/api/v1/tasks/{task_id}",
+        headers=other_headers,
+        json={"title": "Stolen task"},
+    )
+
+    delete_response = client.delete(
+        f"/api/v1/tasks/{task_id}",
+        headers=other_headers,
+    )
+
+    assert update_response.status_code == 404
+    assert delete_response.status_code == 404
+
